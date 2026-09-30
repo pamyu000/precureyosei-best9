@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>プリキュア 2択で決めるMy Best 9</title>
+  <style>
+    :root {
+      --bg: #fff0f5;
+      --accent: #ff69b4;
+      --card-bg: #ffffff;
+      --text: #333;
+    }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-sizing: border-box;
+    }
+    h1 { color: var(--accent); margin-bottom: 5px; text-align: center; font-size: 1.3rem; }
+    p.sub { color: #666; font-size: 0.8rem; margin-bottom: 12px; text-align: center; }
+
+    /* 1. 予選画面（スマホ向け4人表示） */
+    #yosen-screen {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .yosen-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      width: 100%;
+      background: #fff;
+      padding: 15px;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      box-sizing: border-box;
+      min-height: 320px;
+    }
+
+    .item-card {
+      border: 3px solid #eee;
+      border-radius: 12px;
+      padding: 6px;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s;
+      background: #fff;
+    }
+    .item-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 8px;
+      pointer-events: none;
+      display: block;
+    }
+    .item-card input { display: none; }
+    .item-card.selected {
+      border-color: var(--accent);
+      background: #ffe6f2;
+    }
+    .item-name, .match-name { display: none; }
+
+    /* ページネーションボタン */
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-top: 12px;
+    }
+    .page-btn {
+      background: #fff;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    .page-btn:disabled {
+      border-color: #ccc;
+      color: #ccc;
+      cursor: not-allowed;
+    }
+    .page-info {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #555;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      margin-top: 15px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 280px;
+    }
+    .btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
+
+    /* 2. 2択対戦画面 */
+    #match-screen { display: none; width: 100%; max-width: 360px; text-align: center; }
+    .match-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .match-card {
+      background: #fff;
+      border: 3px solid #ffb6c1;
+      border-radius: 15px;
+      padding: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      transition: transform 0.1s;
+    }
+    .match-card:active {
+      transform: scale(0.97);
+    }
+    .match-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 10px;
+      display: block;
+    }
+
+    /* 3. 結果画面 */
+    #result-screen { display: none; width: 100%; max-width: 400px; }
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .result-card {
+      background: #fff;
+      border: 3px solid #ffb6c1;
+      border-radius: 12px;
+      padding: 6px;
+      position: relative;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      text-align: center;
+    }
+    .result-card.top3 { border-color: gold; background: #fffdf0; }
+    .badge {
+      position: absolute;
+      top: -6px; left: -6px;
+      background: var(--accent);
+      color: #fff;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.8rem;
+    }
+    .result-card.top3 .badge { background: gold; color: #333; }
+    .result-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 6px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 予選画面 -->
+  <div id="yosen-screen">
+    <h1>予選：好きなメンバーを選ぼう</h1>
+    <p class="sub">選択中: <span id="count">0</span> / 46匹 (14匹以上選択)</p>
+
+    <div class="yosen-grid" id="yosen-list"></div>
+
+    <!-- ページめくりボタン -->
+    <div class="pagination">
+      <button class="page-btn" id="prev-btn" onclick="changePage(-1)">前へ</button>
+      <span class="page-info" id="page-info">1 / 12</span>
+      <button class="page-btn" id="next-btn" onclick="changePage(1)">次へ</button>
+    </div>
+
+    <button class="btn" id="go-match-btn" disabled onclick="startMatchPhase()">2択対戦をはじめる！</button>
+  </div>
+
+  <!-- 2. 2択対戦画面 -->
+  <div id="match-screen">
+    <h1>好きな方を選んでね！</h1>
+    <p class="sub">第 <span id="match-count">1</span> 判定</p>
+
+    <div class="match-container">
+      <div class="match-card" onclick="choose(0)">
+        <img id="img-left" src="" alt="">
+      </div>
+      <div class="match-card" onclick="choose(1)">
+        <img id="img-right" src="" alt="">
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 結果発表画面 -->
+  <div id="result-screen">
+    <h1>あなたのお気に入り TOP 9</h1>
+    <p class="sub">対戦結果から算出されたランキングです！</p>
+
+    <div class="result-grid" id="result-list"></div>
+
+    <div style="text-align: center;">
+      <button class="btn" onclick="location.reload()">もう一度あそぶ</button>
+    </div>
+  </div>
+
+  <script>
+    // 46匹のデータ設定（01.jpg 〜 46.jpg）
+    const precureList = [];
+    for (let i = 1; i <= 46; i++) {
+      const numStr = String(i).padStart(2, '0');
+      precureList.push({
+        id: i,
+        name: `No.${numStr}`,
+        img: `${numStr}.jpg`
+      });
+    }
+
+    const pageSize = 4; // 1ページあたり4人表示
+    let currentPage = 1;
+    const totalPages = Math.ceil(precureList.length / pageSize);
+
+    const yosenListEl = document.getElementById('yosen-list');
+    const countEl = document.getElementById('count');
+    const btnEl = document.getElementById('go-match-btn');
+    const pageInfoEl = document.getElementById('page-info');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+
+    let selectedIds = [];
+
+    // 予選画面の表示（ページ単位）
+    function renderYosenPage() {
+      yosenListEl.innerHTML = '';
+      const startIdx = (currentPage - 1) * pageSize;
+      const pageItems = precureList.slice(startIdx, startIdx + pageSize);
+
+      pageItems.forEach(p => {
+        const isSelected = selectedIds.includes(p.id);
+        const card = document.createElement('label');
+        card.className = `item-card ${isSelected ? 'selected' : ''}`;
+        card.innerHTML = `
+          <input type="checkbox" value="${p.id}" ${isSelected ? 'checked' : ''} onchange="toggleSelect(this, ${p.id})">
+          <img src="${p.img}" alt="${p.name}">
+        `;
+        yosenListEl.appendChild(card);
+      });
+
+      // ページ情報の更新
+      pageInfoEl.textContent = `${currentPage} / ${totalPages}`;
+      prevBtn.disabled = currentPage === 1;
+      nextBtn.disabled = currentPage === totalPages;
+    }
+
+    function changePage(direction) {
+      currentPage += direction;
+      renderYosenPage();
+    }
+
+    function toggleSelect(input, id) {
+      const card = input.parentElement;
+      if (input.checked) {
+        if (!selectedIds.includes(id)) selectedIds.push(id);
+        card.classList.add('selected');
+      } else {
+        selectedIds = selectedIds.filter(i => i !== id);
+        card.classList.remove('selected');
+      }
+      countEl.textContent = selectedIds.length;
+      btnEl.disabled = selectedIds.length < 14;
+    }
+
+    // 初回表示
+    renderYosenPage();
+
+    // マージソート対戦処理
+    let sortTasks = [];
+    let currentTask = null;
+    let matchStep = 0;
+
+    function startMatchPhase() {
+      document.getElementById('yosen-screen').style.display = 'none';
+      document.getElementById('match-screen').style.display = 'block';
+
+      const finalists = precureList.filter(p => selectedIds.includes(p.id));
+      const initialArrays = finalists.map(item => [item]);
+      
+      buildMergeTasks(initialArrays);
+      nextMatch();
+    }
+
+    function buildMergeTasks(arrays) {
+      if (arrays.length <= 1) {
+        showResult(arrays[0] || []);
+        return;
+      }
+
+      let nextLevelArrays = [];
+      for (let i = 0; i < arrays.length; i += 2) {
+        if (i + 1 < arrays.length) {
+          sortTasks.push({
+            left: arrays[i],
+            right: arrays[i + 1],
+            merged: [],
+            leftIdx: 0,
+            rightIdx: 0,
+            onComplete: (resultArray) => {
+              nextLevelArrays.push(resultArray);
+            }
+          });
+        } else {
+          nextLevelArrays.push(arrays[i]);
+        }
+      }
+
+      sortTasks.push({
+        isLevelEnd: true,
+        nextArrays: nextLevelArrays
+      });
+    }
+
+    function nextMatch() {
+      if (sortTasks.length === 0) return;
+
+      currentTask = sortTasks[0];
+
+      if (currentTask.isLevelEnd) {
+        const nextArrays = currentTask.nextArrays;
+        sortTasks.shift();
+        buildMergeTasks(nextArrays);
+        nextMatch();
+        return;
+      }
+
+      if (currentTask.leftIdx >= currentTask.left.length) {
+        currentTask.merged.push(...currentTask.right.slice(currentTask.rightIdx));
+        currentTask.onComplete(currentTask.merged);
+        sortTasks.shift();
+        nextMatch();
+        return;
+      }
+      if (currentTask.rightIdx >= currentTask.right.length) {
+        currentTask.merged.push(...currentTask.left.slice(currentTask.leftIdx));
+        currentTask.onComplete(currentTask.merged);
+        sortTasks.shift();
+        nextMatch();
+        return;
+      }
+
+      matchStep++;
+      document.getElementById('match-count').textContent = matchStep;
+
+      const itemLeft = currentTask.left[currentTask.leftIdx];
+      const itemRight = currentTask.right[currentTask.rightIdx];
+
+      document.getElementById('img-left').src = itemLeft.img;
+      document.getElementById('img-right').src = itemRight.img;
+    }
+
+    function choose(winner) {
+      if (winner === 0) {
+        currentTask.merged.push(currentTask.left[currentTask.leftIdx]);
+        currentTask.leftIdx++;
+      } else {
+        currentTask.merged.push(currentTask.right[currentTask.rightIdx]);
+        currentTask.rightIdx++;
+      }
+      nextMatch();
+    }
+
+    function showResult(sortedList) {
+      document.getElementById('match-screen').style.display = 'none';
+      document.getElementById('result-screen').style.display = 'block';
+
+      const resultListEl = document.getElementById('result-list');
+      resultListEl.innerHTML = '';
+
+      const top9 = sortedList.slice(0, 9);
+
+      top9.forEach((p, index) => {
+        const card = document.createElement('div');
+        card.className = `result-card ${index < 3 ? 'top3' : ''}`;
+        card.innerHTML = `
+          <div class="badge">${index + 1}</div>
+          <img src="${p.img}" alt="${p.name}">
+        `;
+        resultListEl.appendChild(card);
+      });
+    }
+  </script>
+</body>
+</html>
